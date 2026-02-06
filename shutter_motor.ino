@@ -52,12 +52,11 @@ void setup() {
 
   Serial1.begin(115200, SERIAL_8N1, kUartRxPin, kUartTxPin);
 
-  driver.setup(Serial1, 115200, kRsense, kDriverAddress);
+  driver.setup(Serial1, 115200, static_cast<SerialAddress>(kDriverAddress));
   driver.setRunCurrent(kRunCurrentmA);
   driver.setHoldCurrent((kRunCurrentmA * kHoldCurrentPercent) / 100);
   driver.setHoldDelay(8);
-  driver.setSpreadCycle(true); // StallGuard works in spreadCycle.
-  driver.setCoolStepThreshold(kTcoolThrs);
+  driver.setCoolStepDurationThreshold(kTcoolThrs);
   driver.setStallGuardThreshold(kStallGuardThreshold);
   // DIAG pin is configured on the driver by board defaults; we read it directly.
 }
