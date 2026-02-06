@@ -20,14 +20,14 @@ constexpr int kRunMs = 2000;
 constexpr int kPauseMs = 5000;
 
 // Step timing (tune for your motor/driver setup).
-constexpr int kStepDelayMicros = 800; // 625 steps per second.
+constexpr int kStepDelayMicros = 833; // ~600 steps per second (Profile A).
 
 // TMC2209 UART setup.
 constexpr float kRsense = 0.11f;   // Typical for TMC2209 v3.0 modules.
 constexpr uint8_t kDriverAddress = 0; // MS1/MS2 both low by default.
-constexpr uint16_t kRunCurrentmA = 700;
+constexpr uint16_t kRunCurrentmA = 450;
 constexpr uint8_t kHoldCurrentPercent = 20; // % of run current.
-constexpr int8_t kStallGuardThreshold = -16; // -64..63 (higher = more sensitive).
+constexpr int8_t kStallGuardThreshold = -8; // Profile A start point.
 constexpr uint32_t kTcoolThrs = 0xFFFFF; // Enable StallGuard for all speeds.
 constexpr uint16_t kStallResultLimit = 1; // Lower value = closer to stall.
 constexpr uint16_t kStallResultValidMin = 1; // Ignore SG_RESULT=0 as invalid.
