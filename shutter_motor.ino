@@ -27,11 +27,12 @@ constexpr float kRsense = 0.11f;   // Typical for TMC2209 v3.0 modules.
 constexpr uint8_t kDriverAddress = 0; // MS1/MS2 both low by default.
 constexpr uint16_t kRunCurrentmA = 700;
 constexpr uint8_t kHoldCurrentPercent = 20; // % of run current.
-constexpr uint8_t kStallGuardThreshold = 4; // -64..63 (higher = more sensitive).
+constexpr uint8_t kStallGuardThreshold = 0; // -64..63 (higher = more sensitive).
 constexpr uint32_t kTcoolThrs = 0xFFFFF; // Enable StallGuard for all speeds.
-constexpr uint16_t kStallResultLimit = 2; // Lower value = closer to stall.
+constexpr uint16_t kStallResultLimit = 1; // Lower value = closer to stall.
 constexpr uint16_t kStallReportIntervalMs = 200;
-constexpr uint16_t kStallIgnoreMs = 300; // Ignore stall checks just after start.
+constexpr uint16_t kStallIgnoreMs = 800; // Ignore stall checks just after start.
+constexpr uint8_t kStallConfirmCount = 3;
 
 TMC2209Stepper driver(&Serial1, kRsense, kDriverAddress);
 
@@ -73,6 +74,8 @@ void runMotorFor(unsigned long durationMs) {
       (durationMs * 1000UL) / (kStepDelayMicros * 2UL);
   unsigned long lastReportMs = 0;
   const unsigned long startMs = millis();
+  uint8_t sgLowCount = 0;
+  uint8_t diagHighCount = 0;
 
   for (unsigned long i = 0; i < totalSteps; ++i) {
     const unsigned long nowMs = millis();
@@ -83,14 +86,24 @@ void runMotorFor(unsigned long durationMs) {
       Serial.print("SG_RESULT=");
       Serial.println(sgResult);
       if (sgResult <= kStallResultLimit) {
+        ++sgLowCount;
+      } else {
+        sgLowCount = 0;
+      }
+      if (sgLowCount >= kStallConfirmCount) {
         Serial.println("STALL DETECTED (SG_RESULT)");
         break;
       }
     }
 
     if (stallChecksEnabled && digitalRead(kDiagPin) == HIGH) {
-      Serial.println("STALL DETECTED (DIAG)");
-      break;
+      ++diagHighCount;
+      if (diagHighCount >= kStallConfirmCount) {
+        Serial.println("STALL DETECTED (DIAG)");
+        break;
+      }
+    } else {
+      diagHighCount = 0;
     }
 
     digitalWrite(kStepPin, HIGH);
