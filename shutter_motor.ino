@@ -27,7 +27,7 @@ constexpr float kRsense = 0.11f;   // Typical for TMC2209 v3.0 modules.
 constexpr uint8_t kDriverAddress = 0; // MS1/MS2 both low by default.
 constexpr uint16_t kRunCurrentmA = 700;
 constexpr uint8_t kHoldCurrentPercent = 20; // % of run current.
-constexpr uint8_t kStallGuardThreshold = 0; // -64..63 (higher = more sensitive).
+constexpr int8_t kStallGuardThreshold = -16; // -64..63 (higher = more sensitive).
 constexpr uint32_t kTcoolThrs = 0xFFFFF; // Enable StallGuard for all speeds.
 constexpr uint16_t kStallResultLimit = 1; // Lower value = closer to stall.
 constexpr uint16_t kStallReportIntervalMs = 200;
@@ -65,7 +65,7 @@ void setup() {
   driver.IHOLD_IRUN(iholdIrun);
   driver.en_spreadCycle(true); // StallGuard works in spreadCycle.
   driver.TCOOLTHRS(kTcoolThrs);
-  driver.SGTHRS(kStallGuardThreshold);
+  driver.SGTHRS(static_cast<uint8_t>(kStallGuardThreshold));
   // DIAG pin is configured on the driver by board defaults; we read it directly.
 }
 
@@ -91,19 +91,23 @@ void runMotorFor(unsigned long durationMs) {
         sgLowCount = 0;
       }
       if (sgLowCount >= kStallConfirmCount) {
-        Serial.println("STALL DETECTED (SG_RESULT)");
-        break;
+        Serial.println("STALL CANDIDATE (SG_RESULT)");
       }
     }
 
     if (stallChecksEnabled && digitalRead(kDiagPin) == HIGH) {
       ++diagHighCount;
       if (diagHighCount >= kStallConfirmCount) {
-        Serial.println("STALL DETECTED (DIAG)");
-        break;
+        Serial.println("STALL CANDIDATE (DIAG)");
       }
     } else {
       diagHighCount = 0;
+    }
+
+    if (sgLowCount >= kStallConfirmCount &&
+        diagHighCount >= kStallConfirmCount) {
+      Serial.println("STALL DETECTED (SG_RESULT + DIAG)");
+      break;
     }
 
     digitalWrite(kStepPin, HIGH);
