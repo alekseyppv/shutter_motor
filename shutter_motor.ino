@@ -27,8 +27,10 @@ constexpr float kRsense = 0.11f;   // Typical for TMC2209 v3.0 modules.
 constexpr uint8_t kDriverAddress = 0; // MS1/MS2 both low by default.
 constexpr uint16_t kRunCurrentmA = 700;
 constexpr uint8_t kHoldCurrentPercent = 20; // % of run current.
-constexpr uint8_t kStallGuardThreshold = 8; // -64..63 (higher = more sensitive).
+constexpr uint8_t kStallGuardThreshold = 12; // -64..63 (higher = more sensitive).
 constexpr uint32_t kTcoolThrs = 0xFFFFF; // Enable StallGuard for all speeds.
+constexpr uint16_t kStallResultLimit = 5; // Lower value = closer to stall.
+constexpr uint16_t kStallReportIntervalMs = 200;
 
 TMC2209Stepper driver(&Serial1, kRsense, kDriverAddress);
 
@@ -68,10 +70,23 @@ void setup() {
 void runMotorFor(unsigned long durationMs) {
   const unsigned long totalSteps =
       (durationMs * 1000UL) / (kStepDelayMicros * 2UL);
+  unsigned long lastReportMs = 0;
 
   for (unsigned long i = 0; i < totalSteps; ++i) {
+    const unsigned long nowMs = millis();
+    if ((nowMs - lastReportMs) >= kStallReportIntervalMs) {
+      lastReportMs = nowMs;
+      const uint16_t sgResult = driver.SG_RESULT();
+      Serial.print("SG_RESULT=");
+      Serial.println(sgResult);
+      if (sgResult <= kStallResultLimit) {
+        Serial.println("STALL DETECTED (SG_RESULT)");
+        break;
+      }
+    }
+
     if (digitalRead(kDiagPin) == HIGH) {
-      Serial.println("STALL DETECTED");
+      Serial.println("STALL DETECTED (DIAG)");
       break;
     }
 
