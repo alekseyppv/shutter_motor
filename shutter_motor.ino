@@ -7,8 +7,6 @@
 // DIAG -> GPIO10 (StallGuard output, active low on many boards)
 
 #include <TMC2209.h>
-#include <type_traits>
-#include <utility>
 
 constexpr int kDirPin = 5;
 constexpr int kStepPin = 2;
@@ -42,52 +40,6 @@ constexpr uint8_t kStallConfirmCount = 3;
 TMC2209 driver;
 volatile bool gStallDetected = false;
 
-template <typename T>
-class HasDisableStealthChop {
- private:
-  template <typename U>
-  static auto Test(int) -> decltype(std::declval<U&>().disableStealthChop(),
-                                    std::true_type{});
-  template <typename>
-  static std::false_type Test(...);
-
- public:
-  static constexpr bool value = decltype(Test<T>(0))::value;
-};
-
-template <typename T>
-class HasEnableStallGuard {
- private:
-  template <typename U>
-  static auto Test(int) -> decltype(std::declval<U&>().enableStallGuard(),
-                                    std::true_type{});
-  template <typename>
-  static std::false_type Test(...);
-
- public:
-  static constexpr bool value = decltype(Test<T>(0))::value;
-};
-
-template <typename T>
-typename std::enable_if<HasDisableStealthChop<T>::value>::type
-TryDisableStealthChop(T& drv) {
-  drv.disableStealthChop();
-}
-
-template <typename T>
-typename std::enable_if<!HasDisableStealthChop<T>::value>::type
-TryDisableStealthChop(T&) {}
-
-template <typename T>
-typename std::enable_if<HasEnableStallGuard<T>::value>::type
-TryEnableStallGuard(T& drv) {
-  drv.enableStallGuard();
-}
-
-template <typename T>
-typename std::enable_if<!HasEnableStallGuard<T>::value>::type
-TryEnableStallGuard(T&) {}
-
 void IRAM_ATTR onDiagRise() {
   gStallDetected = true;
 }
@@ -113,8 +65,8 @@ void setup() {
   driver.setRunCurrent(kRunCurrentmA);
   driver.setHoldCurrent((kRunCurrentmA * kHoldCurrentPercent) / 100);
   driver.setHoldDelay(8);
-  TryDisableStealthChop(driver); // StallGuard usually needs spreadCycle.
-  TryEnableStallGuard(driver);
+  // If your installed library supports it, disable StealthChop / enable
+  // StallGuard explicitly in Arduino IDE after compile verification.
   driver.setCoolStepDurationThreshold(kTcoolThrs);
   driver.setStallGuardThreshold(kStallGuardThreshold);
   // DIAG pin is configured on the driver by board defaults; we read it directly.
