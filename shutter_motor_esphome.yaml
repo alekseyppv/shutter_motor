@@ -1,0 +1,327 @@
+esphome:
+  name: shutter-motor
+  friendly_name: Shutter Motor
+  comment: >-
+    ESP32-C3 Super Mini + TMC2209 curtain motor controller.
+    Pins preserved: DIR=GPIO5, STEP=GPIO2, EN=GPIO4, RX=GPIO21, TX=GPIO20, DIAG=GPIO10.
+  on_boot:
+    priority: -10
+    then:
+      - if:
+          condition:
+            binary_sensor.is_on: top_limit
+          then:
+            - lambda: |-
+                id(current_position) = 1.0f;
+                id(curtain_cover).publish_state();
+            - logger.log: "Top switch active on boot: position set to OPEN (100%)."
+          else:
+            - logger.log: "Top switch not active on boot: homing to open limit."
+            - script.execute: home_to_top
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+logger:
+
+api:
+
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "Shutter Fallback"
+    password: "12345678"
+
+captive_portal:
+
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
+
+sensor:
+  - platform: sht3xd
+    temperature:
+      name: "Shutter Temperature"
+    humidity:
+      name: "Shutter Humidity"
+    address: 0x44
+    update_interval: 30s
+
+# RX/TX are reserved and preserved for future UART tuning.
+uart:
+  id: tmc_uart
+  tx_pin: GPIO20
+  rx_pin: GPIO21
+  baud_rate: 115200
+
+output:
+  - platform: gpio
+    id: step_pin
+    pin: GPIO2
+  - platform: gpio
+    id: dir_pin
+    pin: GPIO5
+  - platform: gpio
+    id: en_pin
+    pin: GPIO4
+
+binary_sensor:
+  - platform: gpio
+    id: top_limit
+    name: "Curtain Top Limit"
+    pin:
+      number: GPIO3
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on: 15ms
+      - delayed_off: 15ms
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(calibration_state) == 1;'
+            then:
+              - lambda: |-
+                  id(calibration_state) = 2;
+                  id(calibration_start_ms) = millis();
+              - logger.log: "Calibration: close run started (press switch again at fully closed)."
+              - script.execute: calibration_close_run
+            else:
+              - if:
+                  condition:
+                    lambda: 'return id(calibration_state) == 2;'
+                  then:
+                    - lambda: |-
+                        id(calibration_state) = 0;
+                        const uint32_t elapsed = millis() - id(calibration_start_ms);
+                        if (elapsed > 1000) {
+                          id(full_travel_ms) = elapsed;
+                          id(current_position) = 0.0f;
+                          id(calibrated) = true;
+                          id(curtain_cover).publish_state();
+                        }
+                    - script.stop: calibration_close_run
+                    - script.execute: motor_disable
+                    - logger.log: "Calibration complete: travel time saved."
+                  else:
+                    - if:
+                        condition:
+                          lambda: 'return id(motor_direction) > 0;'
+                        then:
+                          - script.stop: move_to_target
+                          - script.stop: home_to_top
+                          - script.execute: motor_disable
+                          - lambda: |-
+                              id(current_position) = 1.0f;
+                              id(curtain_cover).publish_state();
+                          - logger.log: "Top limit reached: open movement stopped."
+    on_multi_click:
+      - timing:
+          - ON for at most 350ms
+          - OFF for at most 350ms
+          - ON for at most 350ms
+          - OFF for at most 350ms
+          - ON for at most 350ms
+        then:
+          - logger.log: "Triple click detected: start recalibration."
+          - script.execute: start_recalibration
+
+globals:
+  - id: current_position
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+  - id: full_travel_ms
+    type: uint32_t
+    restore_value: yes
+    initial_value: '30000'
+  - id: calibrated
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: motor_direction
+    type: int
+    restore_value: no
+    initial_value: '0'  # +1 open, -1 close
+  - id: move_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: move_start_pos
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: target_position
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: calibration_state
+    type: int
+    restore_value: no
+    initial_value: '0'  # 0 idle, 1 waiting first press, 2 close running
+  - id: calibration_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+cover:
+  - platform: template
+    id: curtain_cover
+    name: "Curtain"
+    device_class: shade
+    has_position: true
+    lambda: |-
+      return id(current_position);
+    open_action:
+      - if:
+          condition:
+            lambda: 'return !id(calibrated);'
+          then:
+            - logger.log: "Not calibrated yet: homing to top first."
+            - script.execute: home_to_top
+          else:
+            - lambda: |-
+                id(target_position) = 1.0f;
+            - script.execute: move_to_target
+    close_action:
+      - if:
+          condition:
+            lambda: 'return id(calibrated);'
+          then:
+            - lambda: |-
+                id(target_position) = 0.0f;
+            - script.execute: move_to_target
+          else:
+            - logger.log: "Close ignored: run recalibration first (triple click)."
+    stop_action:
+      - script.stop: move_to_target
+      - script.stop: home_to_top
+      - script.stop: calibration_close_run
+      - script.execute: motor_disable
+    position_action:
+      - if:
+          condition:
+            lambda: 'return id(calibrated);'
+          then:
+            - lambda: |-
+                id(target_position) = pos;
+            - script.execute: move_to_target
+          else:
+            - logger.log: "Set position ignored: not calibrated yet."
+
+script:
+  - id: motor_disable
+    mode: restart
+    then:
+      - output.turn_on: en_pin  # EN is active-low, HIGH disables driver.
+      - lambda: |-
+          id(motor_direction) = 0;
+
+  - id: motor_step
+    mode: restart
+    then:
+      - output.turn_on: step_pin
+      - delay: 450us
+      - output.turn_off: step_pin
+      - delay: 450us
+
+  - id: home_to_top
+    mode: restart
+    then:
+      - script.execute: motor_disable
+      - output.turn_off: en_pin
+      - output.turn_on: dir_pin
+      - lambda: |-
+          id(motor_direction) = 1;
+      - while:
+          condition:
+            lambda: 'return !id(top_limit).state;'
+          then:
+            - script.execute: motor_step
+      - script.execute: motor_disable
+      - lambda: |-
+          id(current_position) = 1.0f;
+          id(curtain_cover).publish_state();
+
+  - id: move_to_target
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return fabsf(id(target_position) - id(current_position)) < 0.005f;'
+          then:
+            - script.execute: motor_disable
+          else:
+            - output.turn_off: en_pin
+            - lambda: |-
+                id(move_start_ms) = millis();
+                id(move_start_pos) = id(current_position);
+                if (id(target_position) > id(current_position)) {
+                  id(motor_direction) = 1;
+                  id(dir_pin).turn_on();
+                } else {
+                  id(motor_direction) = -1;
+                  id(dir_pin).turn_off();
+                }
+            - while:
+                condition:
+                  lambda: |-
+                    if (id(motor_direction) == 0) return false;
+                    if (id(motor_direction) > 0 && id(top_limit).state) {
+                      id(current_position) = 1.0f;
+                      return false;
+                    }
+                    const float elapsed = (millis() - id(move_start_ms));
+                    const float progress = elapsed / float(id(full_travel_ms));
+                    float next = id(move_start_pos) + progress * id(motor_direction);
+                    if (next < 0.0f) next = 0.0f;
+                    if (next > 1.0f) next = 1.0f;
+                    id(current_position) = next;
+
+                    if (id(motor_direction) > 0) {
+                      return id(current_position) < id(target_position);
+                    }
+                    return id(current_position) > id(target_position);
+                then:
+                  - script.execute: motor_step
+            - script.execute: motor_disable
+            - lambda: |-
+                id(curtain_cover).publish_state();
+
+  - id: start_recalibration
+    mode: restart
+    then:
+      - script.stop: move_to_target
+      - script.stop: home_to_top
+      - script.stop: calibration_close_run
+      - script.execute: motor_disable
+      - lambda: |-
+          id(calibration_state) = 0;
+          id(calibrated) = false;
+      - script.execute: home_to_top
+      - script.wait: home_to_top
+      - lambda: |-
+          id(calibration_state) = 1;
+      - logger.log: "Calibration mode: press top switch once to start closing, press again at fully closed."
+
+  - id: calibration_close_run
+    mode: restart
+    then:
+      - output.turn_off: en_pin
+      - output.turn_off: dir_pin
+      - while:
+          condition:
+            lambda: 'return id(calibration_state) == 2;'
+          then:
+            - script.execute: motor_step
+      - script.execute: motor_disable
