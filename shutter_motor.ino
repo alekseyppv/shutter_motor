@@ -53,13 +53,16 @@ void setup() {
   const uint8_t runCurrent = 31;
   const uint8_t holdCurrent =
       (runCurrent * kHoldCurrentPercent) / 100;
-  driver.IHOLD_IRUN(holdCurrent, runCurrent, 8);
+  const uint8_t holdDelay = 8;
+  const uint32_t iholdIrun =
+      (static_cast<uint32_t>(holdCurrent)) |
+      (static_cast<uint32_t>(runCurrent) << 8) |
+      (static_cast<uint32_t>(holdDelay) << 16);
+  driver.IHOLD_IRUN(iholdIrun);
   driver.en_spreadCycle(true); // StallGuard works in spreadCycle.
   driver.TCOOLTHRS(kTcoolThrs);
   driver.SGTHRS(kStallGuardThreshold);
-  driver.diag1_stall(true);
-  driver.diag1_active_high(true);
-  driver.diag1_pushpull(true);
+  // DIAG pin is configured on the driver by board defaults; we read it directly.
 }
 
 void runMotorFor(unsigned long durationMs) {
