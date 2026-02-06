@@ -6,7 +6,7 @@
 // TX   -> GPIO20 (UART to TMC2209)
 // DIAG -> GPIO10 (StallGuard output)
 
-#include <TMCStepper.h>
+#include <TMC2209.h>
 
 constexpr int kDirPin = 5;
 constexpr int kStepPin = 2;
@@ -36,7 +36,7 @@ constexpr bool kLogSgResult = false;
 constexpr uint16_t kStallIgnoreMs = 800; // Ignore stall checks just after start.
 constexpr uint8_t kStallConfirmCount = 3;
 
-TMC2209Stepper driver(&Serial1, kRsense, kDriverAddress);
+TMC2209 driver;
 
 void setup() {
   Serial.begin(115200);
@@ -52,22 +52,13 @@ void setup() {
 
   Serial1.begin(115200, SERIAL_8N1, kUartRxPin, kUartTxPin);
 
-  driver.begin();
-  driver.toff(4);
-  driver.blank_time(24);
-  driver.rms_current(kRunCurrentmA);
-  const uint8_t runCurrent = 31;
-  const uint8_t holdCurrent =
-      (runCurrent * kHoldCurrentPercent) / 100;
-  const uint8_t holdDelay = 8;
-  const uint32_t iholdIrun =
-      (static_cast<uint32_t>(holdCurrent)) |
-      (static_cast<uint32_t>(runCurrent) << 8) |
-      (static_cast<uint32_t>(holdDelay) << 16);
-  driver.IHOLD_IRUN(iholdIrun);
-  driver.en_spreadCycle(true); // StallGuard works in spreadCycle.
-  driver.TCOOLTHRS(kTcoolThrs);
-  driver.SGTHRS(static_cast<uint8_t>(kStallGuardThreshold));
+  driver.setup(Serial1, 115200, kRsense, kDriverAddress);
+  driver.setRunCurrent(kRunCurrentmA);
+  driver.setHoldCurrent((kRunCurrentmA * kHoldCurrentPercent) / 100);
+  driver.setHoldDelay(8);
+  driver.setSpreadCycle(true); // StallGuard works in spreadCycle.
+  driver.setCoolStepThreshold(kTcoolThrs);
+  driver.setStallGuardThreshold(kStallGuardThreshold);
   // DIAG pin is configured on the driver by board defaults; we read it directly.
 }
 
@@ -84,7 +75,7 @@ void runMotorFor(unsigned long durationMs) {
     const bool stallChecksEnabled = (nowMs - startMs) >= kStallIgnoreMs;
     if (stallChecksEnabled && (nowMs - lastReportMs) >= kStallReportIntervalMs) {
       lastReportMs = nowMs;
-      const uint16_t sgResult = driver.SG_RESULT();
+      const uint16_t sgResult = driver.getStallGuardResult();
       if (kLogSgResult) {
         Serial.print("SG_RESULT=");
         Serial.println(sgResult);
