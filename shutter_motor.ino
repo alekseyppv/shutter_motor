@@ -4,7 +4,7 @@
 // EN   -> GPIO4 (active low, disable in idle to reduce noise)
 // RX   -> GPIO21 (UART to TMC2209)
 // TX   -> GPIO20 (UART to TMC2209)
-// DIAG -> GPIO10 (StallGuard output)
+// DIAG -> GPIO10 (StallGuard output, active low on many boards)
 
 #include <TMC2209.h>
 
@@ -50,8 +50,8 @@ void setup() {
   pinMode(kDirPin, OUTPUT);
   pinMode(kStepPin, OUTPUT);
   pinMode(kEnPin, OUTPUT);
-  pinMode(kDiagPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(kDiagPin), onDiagRise, RISING);
+  pinMode(kDiagPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(kDiagPin), onDiagRise, FALLING);
 
   digitalWrite(kEnPin, HIGH); // Disable driver until we start stepping.
   digitalWrite(kDirPin, HIGH); // One direction.
