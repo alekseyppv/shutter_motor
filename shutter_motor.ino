@@ -52,7 +52,9 @@ void setup() {
 
   Serial1.begin(115200, SERIAL_8N1, kUartRxPin, kUartTxPin);
 
-  driver.setup(Serial1, 115200, static_cast<SerialAddress>(kDriverAddress));
+  const auto address =
+      static_cast<TMC2209::SerialAddress>(kDriverAddress);
+  driver.setup(Serial1, 115200, address);
   driver.setRunCurrent(kRunCurrentmA);
   driver.setHoldCurrent((kRunCurrentmA * kHoldCurrentPercent) / 100);
   driver.setHoldDelay(8);
