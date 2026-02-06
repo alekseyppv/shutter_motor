@@ -33,10 +33,16 @@ constexpr uint16_t kStallResultLimit = 1; // Lower value = closer to stall.
 constexpr uint16_t kStallResultValidMin = 1; // Ignore SG_RESULT=0 as invalid.
 constexpr uint16_t kStallReportIntervalMs = 200;
 constexpr bool kLogSgResult = false;
+constexpr bool kUseSgResult = false;
 constexpr uint16_t kStallIgnoreMs = 800; // Ignore stall checks just after start.
 constexpr uint8_t kStallConfirmCount = 3;
 
 TMC2209 driver;
+volatile bool gStallDetected = false;
+
+void IRAM_ATTR onDiagRise() {
+  gStallDetected = true;
+}
 
 void setup() {
   Serial.begin(115200);
@@ -45,6 +51,7 @@ void setup() {
   pinMode(kStepPin, OUTPUT);
   pinMode(kEnPin, OUTPUT);
   pinMode(kDiagPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(kDiagPin), onDiagRise, RISING);
 
   digitalWrite(kEnPin, HIGH); // Disable driver until we start stepping.
   digitalWrite(kDirPin, HIGH); // One direction.
@@ -69,12 +76,13 @@ void runMotorFor(unsigned long durationMs) {
   unsigned long lastReportMs = 0;
   const unsigned long startMs = millis();
   uint8_t sgLowCount = 0;
-  uint8_t diagHighCount = 0;
+  gStallDetected = false;
 
   for (unsigned long i = 0; i < totalSteps; ++i) {
     const unsigned long nowMs = millis();
     const bool stallChecksEnabled = (nowMs - startMs) >= kStallIgnoreMs;
-    if (stallChecksEnabled && (nowMs - lastReportMs) >= kStallReportIntervalMs) {
+    if (kUseSgResult && stallChecksEnabled &&
+        (nowMs - lastReportMs) >= kStallReportIntervalMs) {
       lastReportMs = nowMs;
       const uint16_t sgResult = driver.getStallGuardResult();
       if (kLogSgResult) {
@@ -92,18 +100,8 @@ void runMotorFor(unsigned long durationMs) {
       }
     }
 
-    if (stallChecksEnabled && digitalRead(kDiagPin) == HIGH) {
-      ++diagHighCount;
-      if (diagHighCount >= kStallConfirmCount) {
-        Serial.println("STALL CANDIDATE (DIAG)");
-      }
-    } else {
-      diagHighCount = 0;
-    }
-
-    if (sgLowCount >= kStallConfirmCount &&
-        diagHighCount >= kStallConfirmCount) {
-      Serial.println("STALL DETECTED (SG_RESULT + DIAG)");
+    if (stallChecksEnabled && gStallDetected) {
+      Serial.println("STALL DETECTED (DIAG)");
       break;
     }
 
