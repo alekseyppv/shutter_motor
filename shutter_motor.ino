@@ -32,6 +32,7 @@ constexpr uint32_t kTcoolThrs = 0xFFFFF; // Enable StallGuard for all speeds.
 constexpr uint16_t kStallResultLimit = 1; // Lower value = closer to stall.
 constexpr uint16_t kStallResultValidMin = 1; // Ignore SG_RESULT=0 as invalid.
 constexpr uint16_t kStallReportIntervalMs = 200;
+constexpr bool kLogSgResult = false;
 constexpr uint16_t kStallIgnoreMs = 800; // Ignore stall checks just after start.
 constexpr uint8_t kStallConfirmCount = 3;
 
@@ -84,8 +85,10 @@ void runMotorFor(unsigned long durationMs) {
     if (stallChecksEnabled && (nowMs - lastReportMs) >= kStallReportIntervalMs) {
       lastReportMs = nowMs;
       const uint16_t sgResult = driver.SG_RESULT();
-      Serial.print("SG_RESULT=");
-      Serial.println(sgResult);
+      if (kLogSgResult) {
+        Serial.print("SG_RESULT=");
+        Serial.println(sgResult);
+      }
       if (sgResult >= kStallResultValidMin) {
         if (sgResult <= kStallResultLimit) {
           ++sgLowCount;
