@@ -17,8 +17,7 @@ esphome:
                 id(curtain_cover).publish_state();
             - logger.log: "Top switch active on boot: position set to OPEN (100%)."
           else:
-            - logger.log: "Top switch not active on boot: homing to open limit."
-            - script.execute: home_to_top
+            - logger.log: "Top switch not active on boot: waiting for manual homing."
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -334,3 +333,12 @@ script:
           then:
             - script.execute: motor_step
       - script.execute: motor_disable
+button:
+  - platform: template
+    name: "Curtain Home (Top)"
+    on_press:
+      - script.execute: home_to_top
+  - platform: template
+    name: "Curtain Recalibrate"
+    on_press:
+      - script.execute: start_recalibration
