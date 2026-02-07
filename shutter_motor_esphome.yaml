@@ -231,9 +231,9 @@ script:
     mode: restart
     then:
       - output.turn_on: step_pin
-      - delay: 450us
+      - delay: 1ms
       - output.turn_off: step_pin
-      - delay: 450us
+      - delay: 1ms
 
   - id: home_to_top
     mode: restart
