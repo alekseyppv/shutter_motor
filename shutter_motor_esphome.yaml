@@ -71,6 +71,7 @@ output:
   - platform: gpio
     id: en_pin
     pin: GPIO4
+    restore_mode: ALWAYS_ON  # EN is active-low; keep driver disabled on boot.
 
 binary_sensor:
   - platform: gpio
