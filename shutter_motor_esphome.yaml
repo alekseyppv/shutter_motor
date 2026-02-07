@@ -5,9 +5,9 @@ esphome:
     ESP32-C3 Super Mini + TMC2209 curtain motor controller.
     Pins preserved: DIR=GPIO5, STEP=GPIO2, EN=GPIO4, RX=GPIO21, TX=GPIO20, DIAG=GPIO10.
   on_boot:
-    priority: -10
+    priority: 600
     then:
-      - output.turn_on: en_pin  # EN is active-low; keep driver disabled on boot.
+      - output.turn_on: en_pin  # EN is active-low; keep driver disabled on boot ASAP.
       - if:
           condition:
             binary_sensor.is_on: top_limit
@@ -28,6 +28,7 @@ esp32:
 logger:
 
 api:
+  reboot_timeout: 0s
 
 ota:
 
@@ -174,6 +175,10 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: home_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
 cover:
   - platform: template
@@ -244,9 +249,12 @@ script:
       - output.turn_on: dir_pin
       - lambda: |-
           id(motor_direction) = 1;
+          id(home_start_ms) = millis();
       - while:
           condition:
-            lambda: 'return !id(top_limit).state;'
+            lambda: |-
+              if (id(top_limit).state) return false;
+              return (millis() - id(home_start_ms)) < 60000;
           then:
             - script.execute: motor_step
       - script.execute: motor_disable
