@@ -26,6 +26,9 @@ esp32:
   framework:
     type: arduino
 
+substitutions:
+  top_limit_inverted: "true"
+
 logger:
 
 api:
@@ -84,7 +87,7 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      inverted: true
+      inverted: ${top_limit_inverted}
     filters:
       - delayed_on: 15ms
       - delayed_off: 15ms
@@ -242,6 +245,28 @@ script:
       - output.turn_off: step_pin
       - delay: 1ms
 
+  - id: jog_open
+    mode: restart
+    then:
+      - output.turn_off: en_pin
+      - output.turn_on: dir_pin
+      - repeat:
+          count: 200
+          then:
+            - script.execute: motor_step
+      - script.execute: motor_disable
+
+  - id: jog_close
+    mode: restart
+    then:
+      - output.turn_off: en_pin
+      - output.turn_off: dir_pin
+      - repeat:
+          count: 200
+          then:
+            - script.execute: motor_step
+      - script.execute: motor_disable
+
   - id: home_to_top
     mode: restart
     then:
@@ -344,3 +369,11 @@ button:
     name: "Curtain Recalibrate"
     on_press:
       - script.execute: start_recalibration
+  - platform: template
+    name: "Curtain Jog Open"
+    on_press:
+      - script.execute: jog_open
+  - platform: template
+    name: "Curtain Jog Close"
+    on_press:
+      - script.execute: jog_close
