@@ -8,6 +8,8 @@ esphome:
     priority: 600
     then:
       - output.turn_on: en_pin  # EN is active-low; keep driver disabled on boot ASAP.
+      - logger.log: "Safe Boot: waiting 10s before any motor action."
+      - delay: 10s
       - if:
           condition:
             binary_sensor.is_on: top_limit
