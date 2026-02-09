@@ -27,7 +27,7 @@ esp32:
     type: arduino
 
 substitutions:
-  top_limit_inverted: "true"
+  top_limit_inverted: "false"
 
 logger:
 
@@ -238,7 +238,7 @@ script:
           id(motor_direction) = 0;
 
   - id: motor_step
-    mode: restart
+    mode: queued
     then:
       - output.turn_on: step_pin
       - delay: 1ms
@@ -254,6 +254,7 @@ script:
           count: 200
           then:
             - script.execute: motor_step
+            - script.wait: motor_step
       - script.execute: motor_disable
 
   - id: jog_close
@@ -265,6 +266,7 @@ script:
           count: 200
           then:
             - script.execute: motor_step
+            - script.wait: motor_step
       - script.execute: motor_disable
 
   - id: home_to_top
@@ -283,6 +285,7 @@ script:
               return (millis() - id(home_start_ms)) < 60000;
           then:
             - script.execute: motor_step
+            - script.wait: motor_step
       - script.execute: motor_disable
       - lambda: |-
           id(current_position) = 1.0f;
@@ -329,6 +332,7 @@ script:
                     return id(current_position) > id(target_position);
                 then:
                   - script.execute: motor_step
+                  - script.wait: motor_step
             - script.execute: motor_disable
             - lambda: |-
                 id(curtain_cover).publish_state();
@@ -359,6 +363,7 @@ script:
             lambda: 'return id(calibration_state) == 2;'
           then:
             - script.execute: motor_step
+            - script.wait: motor_step
       - script.execute: motor_disable
 button:
   - platform: template
