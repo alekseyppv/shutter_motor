@@ -1,4 +1,4 @@
-# Shutter Motor (ESPHome)
+/># Shutter Motor (ESPHome)
 
 Проект управления шторой/занавеской на базе **ESP32-C3 Super Mini** и драйвера шагового двигателя **TMC2209 v3.0**.
 
@@ -17,13 +17,19 @@
 ## Необходимые устройства
 
 1. **ESP32-C3 Super Mini**
+<img src="https://ir.ozone.ru/s3/multimedia-1-p/6922190509.jpg" width="auto" height="300" alt="ESP32">
 2. **Драйвер шагового двигателя TMC2209 v3.0**
+<img src="https://ae04.alicdn.com/kf/S5436ae50ed1c443692ef8942c526acdc9.jpg" width="auto" height="300" alt="TMC2209">
 3. **Шаговый двигатель NEMA17 17HS4401, возможно подойдет и более плоский, у меня установлен за откосом, поэтому он влез и большой размер не является минусом**
+<img src="https://ir-5.ozone.ru/s3/multimedia-w/ww1200/6642873068.jpg" width="auto" height="300" alt="NEMA17">
 4. **Понижающий DC-DC преобразователь на LM2596**
+<img src="https://ir-5.ozone.ru/s3/multimedia-h/wc1000/6788597741.jpg" width="auto" height="300" alt="LM2596">
 5. **Концевой выключатель верхней точки** (NO/NC — определяется настройкой `inverted`)
+<img src="https://ae01.alicdn.com/kf/Hc8da34ff809947268b9dd263cba4dd6eU.jpg" width="auto" height="300" alt="Микрик">
 6. (Опционально) **SHT3x (SHT30/SHT31/SHT35)** по I2C для температуры/влажности
+<img src="https://ir.ozone.ru/s3/multimedia-k/c1000/6578556860.jpg" width="auto" height="300" alt="SHT31">
 7. Блок питания под ваш мотор (обычно 12–24 В для NEMA17 + TMC2209)
-
+<img src="https://iarduino.ru/img/catalog/5556a345633cc0ed14355fa870b21cc1.jpg" width="auto" height="300" alt="БП">
 ## Подключение пинов (по `shutter_motor_esphome.yaml`)
 
 > Ниже — фактические пины из YAML-конфига репозитория.
