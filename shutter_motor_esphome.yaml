@@ -60,12 +60,26 @@ sensor:
     address: 0x44
     update_interval: 30s
 
-# RX/TX are reserved and preserved for future UART tuning.
+# UART bus for TMC2209 register control (current / microsteps / stealthChop).
 uart:
   id: tmc_uart
   tx_pin: GPIO20
   rx_pin: GPIO21
   baud_rate: 115200
+
+# TMC2209 is still driven by STEP/DIR pulses below, but parameters are now
+# managed over UART. This enables stealthChop and future runtime tuning.
+tmc2209:
+  id: tmc_driver
+  uart_id: tmc_uart
+  address: 0
+  rsense: 0.11
+  run_current: 650 mA
+  hold_current: 250 mA
+  microsteps: 16
+  interpolation: true
+  stealthchop_mode: true
+  stealthchop_threshold: 300
 
 output:
   - platform: gpio
